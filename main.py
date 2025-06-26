@@ -7,10 +7,11 @@ from flask import Flask
 # Ortam değişkenleri
 OM_MANUFACTURER_CODE = os.getenv("OM_MANUFACTURER_CODE", "OM")
 OM_LOCK_IMEI = os.getenv("OM_LOCK_IMEI", "862205059210023")
-PORT = int(os.getenv("PORT", "5000"))
+PORT = int(os.getenv("PORT", "5000"))  # Railway bunu sağlıyor
 
-TCP_PORT = PORT + 1  # Railway PORT'u HTTP için kullanacağız, TCP için ayrı
+TCP_PORT = PORT + 1  # TCP dinlemesi burada olacak
 
+# TCP komutları
 def calc_timestamp():
     return datetime.utcnow().strftime("%y%m%d%H%M%S")
 
@@ -44,18 +45,21 @@ def run_tcp_server():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(("0.0.0.0", TCP_PORT))
     sock.listen()
-    print(f"Sunucu dinleniyor: 0.0.0.0:{TCP_PORT}")
+    print(f"TCP Sunucu dinleniyor: 0.0.0.0:{TCP_PORT}")
     while True:
         conn, addr = sock.accept()
         threading.Thread(target=handle_client, args=(conn, addr), daemon=True).start()
 
-# Basit HTTP sunucu (Railway için canlılık kontrolü)
+# Flask sunucu (Railway tarafından izleniyor)
 app = Flask(__name__)
 
 @app.route("/")
 def index():
-    return "TCP Server is running", 200
+    return f"TCP server is running on port {TCP_PORT}", 200
 
 if __name__ == "__main__":
+    # TCP sunucuyu arka planda başlat
     threading.Thread(target=run_tcp_server, daemon=True).start()
+
+    # Flask HTTP sunucuyu başlat (Railway bunu izliyor)
     app.run(host="0.0.0.0", port=PORT)
