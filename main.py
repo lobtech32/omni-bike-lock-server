@@ -50,4 +50,8 @@ app = Flask(__name__)
 
 @app.route("/")
 def index():
-    return f"
+    return f"TCP sunucu aktif: {TCP_PORT}", 200
+
+if __name__ == "__main__":
+    threading.Thread(target=run_tcp_server, daemon=True).start()
+    app.run(host="0.0.0.0", port=PORT)
