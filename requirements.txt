@@ -1,1 +1,2 @@
+flask
 # Sadece Python standard kütüphaneler kullanılıyor, ekstra paket yok
