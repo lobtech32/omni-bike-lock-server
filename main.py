@@ -1,14 +1,15 @@
-# main.py
 import os
 import socket
 import threading
 from datetime import datetime
+from flask import Flask
 
-# Environment değişkenleri Railway’den çekiliyor
+# Ortam değişkenleri
 OM_MANUFACTURER_CODE = os.getenv("OM_MANUFACTURER_CODE", "OM")
 OM_LOCK_IMEI = os.getenv("OM_LOCK_IMEI", "862205059210023")
-HOST = "0.0.0.0"
 PORT = int(os.getenv("PORT", "5000"))
+
+TCP_PORT = PORT + 1  # Railway PORT'u HTTP için kullanacağız, TCP için ayrı
 
 def calc_timestamp():
     return datetime.utcnow().strftime("%y%m%d%H%M%S")
@@ -22,16 +23,12 @@ def build_tcp_command(cmd_type: str, *params) -> bytes:
 def handle_client(conn, addr):
     print(f"[+] Kilit bağlandı: {addr}")
     try:
-        # 1. Giriş (Q0)
         conn.sendall(build_tcp_command("Q0", "0", "80"))
-        # 2. Heartbeat (H0)
         conn.sendall(build_tcp_command("H0", "0", "412", "28", "80"))
-        # 3. Uzaktan Kilit Aç (L0)
         user_id = "1234"
         op_ts = str(int(datetime.utcnow().timestamp()))
         conn.sendall(build_tcp_command("L0", "0", user_id, op_ts))
 
-        # Gelen cevapları logla
         while True:
             data = conn.recv(1024)
             if not data:
@@ -43,14 +40,22 @@ def handle_client(conn, addr):
         conn.close()
         print(f"[-] Kilit ayrıldı: {addr}")
 
-def main():
+def run_tcp_server():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind((HOST, PORT))
+    sock.bind(("0.0.0.0", TCP_PORT))
     sock.listen()
-    print(f"Sunucu dinleniyor: {HOST}:{PORT}")
+    print(f"Sunucu dinleniyor: 0.0.0.0:{TCP_PORT}")
     while True:
         conn, addr = sock.accept()
         threading.Thread(target=handle_client, args=(conn, addr), daemon=True).start()
 
+# Basit HTTP sunucu (Railway için canlılık kontrolü)
+app = Flask(__name__)
+
+@app.route("/")
+def index():
+    return "TCP Server is running", 200
+
 if __name__ == "__main__":
-    main()
+    threading.Thread(target=run_tcp_server, daemon=True).start()
+    app.run(host="0.0.0.0", port=PORT)
