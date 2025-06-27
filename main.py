@@ -64,7 +64,7 @@ def handle_client(conn, addr):
             parts = text.split(',')
             if len(parts) > 4 and parts[4] == 'Q0':
                 state['last_q0'] = text
-n            if len(parts) > 4 and parts[4] == 'D0':
+            if len(parts) > 4 and parts[4] == 'D0':
                 state['last_d0'] = text
     except Exception as e:
         print(f"[!] Hata: {e}")
