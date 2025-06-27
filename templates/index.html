@@ -1,23 +1,34 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Kontrol Paneli</title>
+    <title>Panel</title>
 </head>
 <body>
-  <h1>🚲 Kilit Durumu</h1>
-  <p><strong>Online:</strong> {{ 'Evet' if device.online else 'Hayır' }}</p>
-  <p><strong>Son Mesaj:</strong> {{ device.last_message }}</p>
-  <p><strong>Son Bağlantı:</strong> {{ device.last_seen }}</p>
-  <p><strong>Voltaj:</strong> {{ device.voltage }}</p>
+    <h2>Hoş geldiniz!</h2>
+    <a href="/logout">Çıkış</a>
 
-  <button onclick="unlock()">🔓 Kilidi Aç</button>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <ul>
+        {% for message in messages %}
+          <li>{{ message }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
 
-  <script>
-    function unlock() {
-      fetch("/unlock", {method: "POST"})
-        .then(res => res.json())
-        .then(data => alert("Komut gönderildi!"));
-    }
-  </script>
+    <h3>Kilit Durumu:</h3>
+    {% for lock in locks %}
+        <p><b>IMEI:</b> {{ lock.imei }}</p>
+        <p><b>Durum:</b> {{ 'Bağlı' if lock.online else 'Bağlı Değil' }}</p>
+        <p><b>Son Mesaj:</b> {{ lock.last_message }}</p>
+        <p><b>Son Görülme:</b> {{ lock.last_seen }}</p>
+        <p><b>Voltaj:</b> {{ lock.voltage }}</p>
+        <form method="POST" action="/unlock">
+            <input type="hidden" name="address" value="{{ lock.imei }}">
+            <button type="submit">Kilidi Aç</button>
+        </form>
+        <hr>
+    {% endfor %}
 </body>
 </html>
