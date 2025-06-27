@@ -1,14 +1,26 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Giriş</title>
+    <title>Giriş</title>
 </head>
 <body>
-  <h2>Yönetici Girişi</h2>
-  <form method="post">
-    <input type="text" name="username" placeholder="Kullanıcı Adı">
-    <input type="password" name="password" placeholder="Şifre">
-    <button type="submit">Giriş</button>
-  </form>
+    <h2>Admin Panel Girişi</h2>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <ul>
+        {% for message in messages %}
+          <li>{{ message }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST">
+        <label>Kullanıcı Adı:</label><br>
+        <input type="text" name="username"><br>
+        <label>Şifre:</label><br>
+        <input type="password" name="password"><br><br>
+        <button type="submit">Giriş Yap</button>
+    </form>
 </body>
 </html>
