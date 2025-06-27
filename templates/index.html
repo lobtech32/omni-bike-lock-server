@@ -1,49 +1,23 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html>
 <head>
-    <meta charset="UTF-8" />
-    <title>Kilit Yönetim Paneli</title>
+  <title>Kontrol Paneli</title>
 </head>
 <body>
-    <h1>Kilit Yönetim Paneli</h1>
-    <a href="{{ url_for('logout') }}">Çıkış Yap</a>
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        <ul style="color:green;">
-          {% for msg in messages %}
-            <li>{{ msg }}</li>
-          {% endfor %}
-        </ul>
-      {% endif %}
-    {% endwith %}
-    <table border="1" cellpadding="5" cellspacing="0">
-        <tr>
-            <th>Adres</th>
-            <th>Durum</th>
-            <th>Son Bağlantı</th>
-            <th>Voltaj</th>
-            <th>İşlem</th>
-        </tr>
-        {% for lock in locks %}
-        <tr>
-            <td>{{ lock.address }}</td>
-            <td>
-                {% if lock.connected %}
-                    <span style="color:green;">● Bağlı</span>
-                {% else %}
-                    <span style="color:red;">● Kapalı</span>
-                {% endif %}
-            </td>
-            <td>{{ lock.last_seen }}</td>
-            <td>{{ lock.voltage or "-" }}</td>
-            <td>
-                <form method="post" action="{{ url_for('unlock') }}">
-                    <input type="hidden" name="address" value="{{ lock.address }}" />
-                    <button type="submit" {% if not lock.connected %}disabled{% endif %}>Kilidi Aç</button>
-                </form>
-            </td>
-        </tr>
-        {% endfor %}
-    </table>
+  <h1>🚲 Kilit Durumu</h1>
+  <p><strong>Online:</strong> {{ 'Evet' if device.online else 'Hayır' }}</p>
+  <p><strong>Son Mesaj:</strong> {{ device.last_message }}</p>
+  <p><strong>Son Bağlantı:</strong> {{ device.last_seen }}</p>
+  <p><strong>Voltaj:</strong> {{ device.voltage }}</p>
+
+  <button onclick="unlock()">🔓 Kilidi Aç</button>
+
+  <script>
+    function unlock() {
+      fetch("/unlock", {method: "POST"})
+        .then(res => res.json())
+        .then(data => alert("Komut gönderildi!"));
+    }
+  </script>
 </body>
 </html>
