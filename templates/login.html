@@ -1,26 +1,14 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html>
 <head>
-    <meta charset="UTF-8" />
-    <title>Giriş - Kilit Paneli</title>
+  <title>Giriş</title>
 </head>
 <body>
-    <h2>Giriş Yap</h2>
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        <ul style="color:red;">
-          {% for msg in messages %}
-            <li>{{ msg }}</li>
-          {% endfor %}
-        </ul>
-      {% endif %}
-    {% endwith %}
-    <form method="post" action="{{ url_for('login') }}">
-        <label>Kullanıcı Adı:</label><br/>
-        <input type="text" name="username" required /><br/>
-        <label>Şifre:</label><br/>
-        <input type="password" name="password" required /><br/><br/>
-        <button type="submit">Giriş</button>
-    </form>
+  <h2>Yönetici Girişi</h2>
+  <form method="post">
+    <input type="text" name="username" placeholder="Kullanıcı Adı">
+    <input type="password" name="password" placeholder="Şifre">
+    <button type="submit">Giriş</button>
+  </form>
 </body>
 </html>
