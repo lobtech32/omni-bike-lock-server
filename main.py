@@ -1,101 +1,101 @@
 import socket
 import threading
-import time
-from flask import Flask, request, jsonify
-from werkzeug.serving import make_server
+from flask import Flask, request, jsonify, render_template, redirect, url_for, session
 import os
-
-clients = {}
-lock_status = {}
+from datetime import datetime
 
 app = Flask(__name__)
+app.secret_key = "super-secret-key"  # güvenlik için değiştir
 
-def handle_client(conn, addr):
-    print(f"Yeni bağlantı: {addr}")
-    clients[addr] = conn
-    lock_status[addr] = {
-        "connected": True,
-        "last_seen": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "voltage": None,
-        "location": None
-    }
-    try:
-        while True:
-            data = conn.recv(1024)
-            if not data:
-                break
-            message = data.decode().strip()
-            print(f"{addr} mesajı: {message}")
-            lock_status[addr]["last_seen"] = time.strftime("%Y-%m-%d %H:%M:%S")
-            if message.startswith("Q0"):
-                parts = message.split()
-                if len(parts) > 1:
-                    lock_status[addr]["voltage"] = parts[1]
-    except Exception as e:
-        print(f"{addr} bağlantı hatası: {e}")
-    finally:
-        print(f"Bağlantı kapandı: {addr}")
-        lock_status[addr]["connected"] = False
-        conn.close()
-        if addr in clients:
-            del clients[addr]
+# Basit kullanıcı giriş bilgisi
+USERNAME = "admin"
+PASSWORD = "1234"
 
+# Cihaz durumu (güncellenecek)
+device_data = {
+    "online": False,
+    "last_message": "",
+    "last_seen": "",
+    "voltage": None,
+}
+
+clients = []
+
+# TCP komut gönderici
+def send_command(command):
+    for c in clients:
+        try:
+            c.sendall(command.encode())
+        except:
+            pass
+
+# Giriş ekranı
+@app.route("/", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        if request.form["username"] == USERNAME and request.form["password"] == PASSWORD:
+            session["logged_in"] = True
+            return redirect(url_for("panel"))
+        return "Hatalı giriş", 403
+    return render_template("login.html")
+
+# Admin paneli
+@app.route("/panel")
+def panel():
+    if not session.get("logged_in"):
+        return redirect(url_for("login"))
+    return render_template("index.html", device=device_data)
+
+# Kilidi aç
+@app.route("/unlock", methods=["POST"])
+def unlock():
+    if not session.get("logged_in"):
+        return redirect(url_for("login"))
+    send_command("*CMDR,OM,862205059210023,000000000000,L0,0,1234,1751022197#")
+    return jsonify({"status": "sent"})
+
+# TCP sunucu
 def start_tcp_server():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind(('0.0.0.0', 5000))
-    server.listen(5)
-    print("TCP Sunucu dinleniyor: 0.0.0.0:5000")
+    server.bind(('0.0.0.0', 39051))  # CİHAZLAR BURAYA GELİYOR
+    server.listen()
+
+    print("TCP Sunucu dinleniyor: 0.0.0.0:39051")
     while True:
-        conn, addr = server.accept()
-        thread = threading.Thread(target=handle_client, args=(conn, addr))
-        thread.start()
+        client, addr = server.accept()
+        print(f"Yeni bağlantı: {addr}")
+        clients.append(client)
 
-@app.route("/locks", methods=["GET"])
-def get_locks():
-    response = []
-    for addr, status in lock_status.items():
-        response.append({
-            "address": f"{addr[0]}:{addr[1]}",
-            "connected": status["connected"],
-            "last_seen": status["last_seen"],
-            "voltage": status["voltage"],
-            "location": status["location"]
-        })
-    return jsonify(response)
+        def handle_client(c):
+            while True:
+                try:
+                    data = c.recv(1024)
+                    if not data:
+                        break
+                    msg = data.decode(errors="ignore").strip()
+                    print(f"{addr} mesajı: {msg}")
+                    device_data["online"] = True
+                    device_data["last_message"] = msg
+                    device_data["last_seen"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-@app.route("/send_l0", methods=["POST"])
-def send_l0():
-    data = request.get_json()
-    address_str = data.get("address")
-    if not address_str:
-        return jsonify({"error": "address gerekli"}), 400
-    try:
-        ip, port = address_str.split(":")
-        addr = (ip, int(port))
-        if addr in clients:
-            clients[addr].sendall(b"L0\n")
-            return jsonify({"status": "ok", "message": f"L0 gönderildi → {address_str}"})
-        else:
-            return jsonify({"status": "fail", "message": "Kilit bağlı değil"}), 404
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+                    # Q0 mesajından voltaj ayıkla
+                    if ",Q0," in msg:
+                        try:
+                            volt = msg.split(",Q0,")[1].replace("#", "")
+                            device_data["voltage"] = volt
+                        except:
+                            pass
 
-class FlaskThread(threading.Thread):
-    def __init__(self):
-        threading.Thread.__init__(self)
-        port = int(os.environ.get("PORT", 8000))  # Railway ne port verirse onu kullan
-        self.server = make_server('0.0.0.0', port, app)
-        self.ctx = app.app_context()
-        self.ctx.push()
+                except:
+                    break
 
-    def run(self):
-        print("Flask API başlatıldı")
-        self.server.serve_forever()
+        threading.Thread(target=handle_client, args=(client,), daemon=True).start()
 
-    def shutdown(self):
-        self.server.shutdown()
+# TCP server ayrı thread'de başlat
+threading.Thread(target=start_tcp_server, daemon=True).start()
 
+# Flask başlat
 if __name__ == "__main__":
-    flask_thread = FlaskThread()
-    flask_thread.start()
-    start_tcp_server()
+    port = int(os.environ.get("PORT", 8000))
+    print(f"Flask API başlatıldı: 0.0.0.0:{port}")
+    app.run(host="0.0.0.0", port=port)
