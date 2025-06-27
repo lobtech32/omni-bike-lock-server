@@ -1,2 +1,2 @@
-flask
-werkzeug
+Flask
+requests
