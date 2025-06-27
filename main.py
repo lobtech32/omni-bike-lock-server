@@ -1,56 +1,44 @@
-import os
 import socket
 import threading
-from datetime import datetime, timezone
+import time
 
-OM_MANUFACTURER_CODE = os.getenv("OM_MANUFACTURER_CODE", "OM")
-OM_LOCK_IMEI = os.getenv("OM_LOCK_IMEI", "862205059210023")
-HOST = "0.0.0.0"
-PORT = int(os.getenv("PORT", "5000"))
-
-def calc_timestamp():
-    return datetime.now(timezone.utc).strftime("%y%m%d%H%M%S")
-
-def build_tcp_command(cmd_type: str, *params) -> bytes:
-    ts = calc_timestamp()
-    parts = ["*CMDS", OM_MANUFACTURER_CODE, OM_LOCK_IMEI, ts, cmd_type] + list(params)
-    cmd_str = ",".join(parts) + "#\n"
-    return b"\xFF\xFF" + cmd_str.encode()
+clients = {}
+lock_status = {}
 
 def handle_client(conn, addr):
-    print(f"[+] Kilit bağlandı: {addr}")
+    print(f"Yeni bağlantı: {addr}")
+    clients[addr] = conn
+    lock_status[addr] = {"connected": True, "last_seen": time.time(), "location": None, "voltage": None}
     try:
-        # Giriş ve durum gönder
-        conn.sendall(build_tcp_command("Q0", "0", "80"))
-        conn.sendall(build_tcp_command("H0", "0", "412", "28", "80"))
-
-        user_id = "1234"
-        op_ts = str(int(datetime.now(timezone.utc).timestamp()))
-
-        # ŞİMDİ SADECE L1 KOMUTU GÖNDER
-        print(">> Kilit kapatılıyor (L1)...")
-        conn.sendall(build_tcp_command("L1", "0", user_id, op_ts))
-
         while True:
             data = conn.recv(1024)
             if not data:
                 break
-            print(f"[{addr}] <<< {data.decode(errors='ignore').strip()}")
-
+            message = data.decode()
+            print(f"{addr} mesajı: {message}")
+            # Gelen mesajı işleme (örnek Q0 voltaj vs)
+            if message.startswith("Q0"):
+                voltage = message.split()[1] if len(message.split()) > 1 else None
+                lock_status[addr]["voltage"] = voltage
+            lock_status[addr]["last_seen"] = time.time()
+            # Lokasyon vb varsa buraya eklenebilir
     except Exception as e:
-        print(f"[!] Hata: {e}")
+        print(f"Hata {addr}: {e}")
     finally:
+        print(f"Bağlantı kapandı: {addr}")
+        lock_status[addr]["connected"] = False
         conn.close()
-        print(f"[-] Kilit ayrıldı: {addr}")
+        del clients[addr]
 
-def main():
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind((HOST, PORT))
-    sock.listen()
-    print(f"Sunucu dinleniyor: {HOST}:{PORT}")
+def start_server():
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.bind(('0.0.0.0', 5000))
+    server.listen(5)
+    print("Sunucu başlatıldı, dinleniyor: 0.0.0.0:5000")
     while True:
-        conn, addr = sock.accept()
-        threading.Thread(target=handle_client, args=(conn, addr), daemon=True).start()
+        conn, addr = server.accept()
+        thread = threading.Thread(target=handle_client, args=(conn, addr))
+        thread.start()
 
 if __name__ == "__main__":
-    main()
+    start_server()
