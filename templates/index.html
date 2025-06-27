@@ -7,18 +7,26 @@
 <body>
     <h1>Kilit Yönetim Paneli</h1>
     <a href="{{ url_for('logout') }}">Çıkış Yap</a>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <ul style="color:green;">
+          {% for msg in messages %}
+            <li>{{ msg }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
     <table border="1" cellpadding="5" cellspacing="0">
         <tr>
-            <th>ID</th>
+            <th>Adres</th>
             <th>Durum</th>
             <th>Son Bağlantı</th>
-            <th>Konum</th>
             <th>Voltaj</th>
             <th>İşlem</th>
         </tr>
         {% for lock in locks %}
         <tr>
-            <td>{{ lock.id }}</td>
+            <td>{{ lock.address }}</td>
             <td>
                 {% if lock.connected %}
                     <span style="color:green;">● Bağlı</span>
@@ -27,10 +35,10 @@
                 {% endif %}
             </td>
             <td>{{ lock.last_seen }}</td>
-            <td>{{ lock.location }}</td>
-            <td>{{ lock.voltage }}</td>
+            <td>{{ lock.voltage or "-" }}</td>
             <td>
-                <form method="post" action="{{ url_for('unlock', lock_id=lock.id) }}">
+                <form method="post" action="{{ url_for('unlock') }}">
+                    <input type="hidden" name="address" value="{{ lock.address }}" />
                     <button type="submit" {% if not lock.connected %}disabled{% endif %}>Kilidi Aç</button>
                 </form>
             </td>
