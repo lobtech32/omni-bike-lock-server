@@ -1,13 +1,16 @@
 import socket
 import threading
 import os
+from flask import Flask, request
 from dotenv import load_dotenv
 
 load_dotenv()
 
 TCP_PORT = int(os.getenv("TCP_PORT", 39051))
-
+HTTP_PORT = int(os.getenv("FLASK_PORT", 5000))
 connections = {}
+
+app = Flask(__name__)
 
 def handle_client(conn, addr):
     try:
@@ -41,5 +44,16 @@ def tcp_server():
         conn, addr = server.accept()
         threading.Thread(target=handle_client, args=(conn, addr), daemon=True).start()
 
+@app.route("/open/<device_id>", methods=["POST"])
+def open_lock(device_id):
+    if device_id in connections:
+        try:
+            connections[device_id].sendall(b"L0\n")
+            return {"status": "success", "message": f"Kilit {device_id} açıldı"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}, 500
+    return {"status": "error", "message": "Cihaz bağlı değil"}, 404
+
 if __name__ == "__main__":
-    tcp_server()
+    threading.Thread(target=tcp_server, daemon=True).start()
+    app.run(host="0.0.0.0", port=HTTP_PORT)
