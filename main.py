@@ -1,17 +1,11 @@
 import socket
 import threading
-from flask import Flask, request, jsonify, render_template, redirect, url_for, session
+from flask import Flask, request, jsonify
 import os
 from datetime import datetime
 
 app = Flask(__name__)
-app.secret_key = "super-secret-key"  # güvenlik için değiştir
 
-# Basit kullanıcı giriş bilgisi
-USERNAME = "admin"
-PASSWORD = "1234"
-
-# Cihaz durumu (güncellenecek)
 device_data = {
     "online": False,
     "last_message": "",
@@ -21,7 +15,6 @@ device_data = {
 
 clients = []
 
-# TCP komut gönderici
 def send_command(command):
     for c in clients:
         try:
@@ -29,35 +22,27 @@ def send_command(command):
         except:
             pass
 
-# Giriş ekranı
-@app.route("/", methods=["GET", "POST"])
-def login():
-    if request.method == "POST":
-        if request.form["username"] == USERNAME and request.form["password"] == PASSWORD:
-            session["logged_in"] = True
-            return redirect(url_for("panel"))
-        return "Hatalı giriş", 403
-    return render_template("login.html")
-
-# Admin paneli
-@app.route("/panel")
-def panel():
-    if not session.get("logged_in"):
-        return redirect(url_for("login"))
-    return render_template("index.html", device=device_data)
-
-# Kilidi aç
-@app.route("/unlock", methods=["POST"])
-def unlock():
-    if not session.get("logged_in"):
-        return redirect(url_for("login"))
+@app.route("/send_l0", methods=["POST"])
+def send_l0():
+    data = request.get_json()
+    if not data or "address" not in data:
+        return jsonify({"status": "error", "message": "Eksik veri"}), 400
     send_command("*CMDR,OM,862205059210023,000000000000,L0,0,1234,1751022197#")
-    return jsonify({"status": "sent"})
+    return jsonify({"status": "ok"})
 
-# TCP sunucu
+@app.route("/locks")
+def get_status():
+    return jsonify([{
+        "imei": "862205059210023",
+        "online": device_data["online"],
+        "last_message": device_data["last_message"],
+        "last_seen": device_data["last_seen"],
+        "voltage": device_data["voltage"],
+    }])
+
 def start_tcp_server():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind(('0.0.0.0', 39051))  # CİHAZLAR BURAYA GELİYOR
+    server.bind(('0.0.0.0', 39051))  # Cihaz buraya bağlanıyor
     server.listen()
 
     print("TCP Sunucu dinleniyor: 0.0.0.0:39051")
@@ -78,7 +63,6 @@ def start_tcp_server():
                     device_data["last_message"] = msg
                     device_data["last_seen"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-                    # Q0 mesajından voltaj ayıkla
                     if ",Q0," in msg:
                         try:
                             volt = msg.split(",Q0,")[1].replace("#", "")
@@ -91,10 +75,8 @@ def start_tcp_server():
 
         threading.Thread(target=handle_client, args=(client,), daemon=True).start()
 
-# TCP server ayrı thread'de başlat
 threading.Thread(target=start_tcp_server, daemon=True).start()
 
-# Flask başlat
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     print(f"Flask API başlatıldı: 0.0.0.0:{port}")
