@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Müşteri Sayfası</title>
+</head>
+<body>
+  <h2>Kilit ID: {{ device_id }}</h2>
+  <p>Durum: <strong>{{ status }}</strong></p>
+
+  {% if status == "Kapalı" %}
+  <form method="post" action="/open/{{ device_id }}">
+    <button type="submit">Kirala / Aç</button>
+  </form>
+  {% else %}
+  <p>Kilit zaten açık.</p>
+  {% endif %}
+</body>
+</html>
