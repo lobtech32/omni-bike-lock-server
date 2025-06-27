@@ -1,26 +1,22 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Giriş</title>
+    <meta charset="UTF-8">
+    <title>Admin Login</title>
 </head>
 <body>
-    <h2>Admin Panel Girişi</h2>
-    {% with messages = get_flashed_messages() %}
+    <h2>Admin Login</h2>
+    <form method="POST">
+        <input name="username" placeholder="Username" required>
+        <input name="password" type="password" placeholder="Password" required>
+        <button type="submit">Login</button>
+    </form>
+    {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
-        <ul>
-        {% for message in messages %}
-          <li>{{ message }}</li>
+        {% for category, msg in messages %}
+          <div>{{ msg }}</div>
         {% endfor %}
-        </ul>
       {% endif %}
     {% endwith %}
-
-    <form method="POST">
-        <label>Kullanıcı Adı:</label><br>
-        <input type="text" name="username"><br>
-        <label>Şifre:</label><br>
-        <input type="password" name="password"><br><br>
-        <button type="submit">Giriş Yap</button>
-    </form>
 </body>
 </html>
