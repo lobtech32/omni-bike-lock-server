@@ -1,52 +1,15 @@
-from flask import Flask, render_template, request, redirect, url_for, session
-import os, requests
-from dotenv import load_dotenv
+from flask import Flask, request
+import requests
+import os
 
-load_dotenv()
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "devkey")
-
-ADMIN_USER = os.getenv("ADMIN_USER", "admin")
-ADMIN_PASS = os.getenv("ADMIN_PASS", "admin")
-MAIN_URL = os.getenv("MAIN_URL", "http://localhost:5000")
-
-lock_ids = ["1001", "1002"]
-lock_status = {id: "Kapalı" for id in lock_ids}
-
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "POST":
-        if request.form["username"] == ADMIN_USER and request.form["password"] == ADMIN_PASS:
-            session["logged_in"] = True
-            return redirect("/admin")
-        return "Hatalı giriş"
-    return render_template("login.html")
-
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect("/login")
-
-@app.route("/admin")
-def admin():
-    if not session.get("logged_in"):
-        return redirect("/login")
-    return render_template("admin.html", devices=lock_ids, statuses=lock_status)
+TCP_SERVER_URL = os.getenv("TCP_SERVER_URL", "http://localhost:5000")
 
 @app.route("/open/<device_id>", methods=["POST"])
 def open_lock(device_id):
-    try:
-        res = requests.post(f"{MAIN_URL}/open/{device_id}")
-        if res.status_code == 200:
-            lock_status[device_id] = "Açık"
-    except:
-        pass
-    return redirect(request.referrer or "/admin")
-
-@app.route("/customer/<device_id>")
-def customer(device_id):
-    status = lock_status.get(device_id, "Bilinmiyor")
-    return render_template("customer.html", device_id=device_id, status=status)
+    # TCP server ile iletişim API’sı yoksa, TCP servera direkt erişemeyiz.
+    # En iyisi TCP server bir API sunar, ya da Redis gibi bir ortak depoya yazılır.
+    return {"status": "not_implemented"}, 501
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+    app.run(host="0.0.0.0", port=int(os.getenv("FLASK_PORT", 8000)))
