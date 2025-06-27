@@ -1,77 +1,59 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
-import socket
-import threading
-import time
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+import requests
 
 app = Flask(__name__)
-app.secret_key = "süpergizlisifre123"  # Bunu kendin değiştir
+app.secret_key = "süpergizlisifre123"  # Değiştir!
 
-# Sabit kullanıcı adı ve şifre (basit örnek)
+# API ayarları — main.py Flask API adresi
+API_URL = "http://localhost:8000"  # Railway'de gerçek URL olmalı
+
 USERNAME = "admin"
 PASSWORD = "123456"
-
-# TCP client dictionary (ip:port → socket)
-clients = {}
-lock_status = {}
-
-# Bu kısmı main.py ile senkron tutmak için basit mekanizma kurabiliriz,
-# ama şu aşamada aynı sunucuya bağlanıyorsan ayrı thread veya API çağrısı gerek.
-
-# TCP sunucu ile haberleşme için (örn. localhost:5000)
-TCP_HOST = "127.0.0.1"
-TCP_PORT = 5000
-
-# Basit TCP client ile L0 komutu gönderme fonksiyonu
-def send_l0_command(addr):
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect(addr)
-        sock.sendall(b"L0\n")
-        sock.close()
-        return True
-    except Exception as e:
-        print(f"L0 komutu gönderilemedi: {e}")
-        return False
 
 @app.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
-        if username == USERNAME and password == PASSWORD:
+        u = request.form.get("username")
+        p = request.form.get("password")
+        if u == USERNAME and p == PASSWORD:
             session["logged_in"] = True
             return redirect(url_for("panel"))
         else:
-            flash("Hatalı kullanıcı adı veya şifre")
+            flash("Kullanıcı adı veya şifre yanlış!")
     return render_template("login.html")
 
 @app.route("/panel")
 def panel():
     if not session.get("logged_in"):
         return redirect(url_for("login"))
-    
-    # Örnek veri (gerçek durum main.py'den alınmalı)
-    # Şimdilik sabit örnek
-    locks = [
-        {"id": 1, "address": ("127.0.0.1", 6000), "connected": True, "last_seen": "2025-06-27 15:00:00", "location": "Belirtilmedi", "voltage": "12.5V"},
-        # Bunu gerçek veriye göre güncelle
-    ]
+
+    try:
+        r = requests.get(f"{API_URL}/locks")
+        locks = r.json()
+    except Exception as e:
+        locks = []
+        flash(f"Kilitleme servisine bağlanılamadı: {e}")
 
     return render_template("index.html", locks=locks)
 
-@app.route("/unlock/<int:lock_id>", methods=["POST"])
-def unlock(lock_id):
+@app.route("/unlock", methods=["POST"])
+def unlock():
     if not session.get("logged_in"):
         return redirect(url_for("login"))
-    
-    # Örnek: lock_id ile adres bul, L0 komutu gönder
-    # Burada hardcoded, kendi TCP client yapına göre değiştir
-    addr = ("127.0.0.1", 6000)
-    success = send_l0_command(addr)
-    if success:
-        flash(f"Kilit {lock_id} başarıyla açıldı.")
-    else:
-        flash(f"Kilit {lock_id} açılamadı.")
+    address = request.form.get("address")
+    if not address:
+        flash("Adres bilgisi eksik")
+        return redirect(url_for("panel"))
+    try:
+        r = requests.post(f"{API_URL}/send_l0", json={"address": address})
+        resp = r.json()
+        if r.status_code == 200 and resp.get("status") == "ok":
+            flash(f"{address} kilidi açıldı.")
+        else:
+            flash(f"Kilit açılamadı: {resp.get('message')}")
+    except Exception as e:
+        flash(f"İstek gönderilirken hata: {e}")
+
     return redirect(url_for("panel"))
 
 @app.route("/logout")
@@ -80,4 +62,4 @@ def logout():
     return redirect(url_for("login"))
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=True)
+    app.run(host="0.0.0.0", port=8080, debug=True)
