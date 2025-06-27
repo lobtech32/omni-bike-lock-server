@@ -1,11 +1,11 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 import requests
 
 app = Flask(__name__)
 app.secret_key = "süpergizlisifre123"  # Değiştir!
 
-# API ayarları — main.py Flask API adresi
-API_URL = "http://localhost:8000"  # Railway'de gerçek URL olmalı
+# ❗ GÜNCELLENMESİ GEREKEN KISIM:
+API_URL = "https://omni-bike-lock-server-production.up.railway.app"
 
 USERNAME = "admin"
 PASSWORD = "123456"
