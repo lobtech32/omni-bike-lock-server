@@ -1,7 +1,6 @@
 import os
 import socket
 import threading
-import time
 from datetime import datetime, timezone
 
 OM_MANUFACTURER_CODE = os.getenv("OM_MANUFACTURER_CODE", "OM")
@@ -21,18 +20,14 @@ def build_tcp_command(cmd_type: str, *params) -> bytes:
 def handle_client(conn, addr):
     print(f"[+] Kilit bağlandı: {addr}")
     try:
+        # Giriş ve durum gönder
         conn.sendall(build_tcp_command("Q0", "0", "80"))
         conn.sendall(build_tcp_command("H0", "0", "412", "28", "80"))
 
         user_id = "1234"
         op_ts = str(int(datetime.now(timezone.utc).timestamp()))
 
-        # 1. Kilidi aç (L0)
-        print(">> Kilit açılıyor (L0)...")
-        conn.sendall(build_tcp_command("L0", "0", user_id, op_ts))
-
-        # 2. 3 saniye sonra kilidi kapat (L1)
-        time.sleep(3)
+        # ŞİMDİ SADECE L1 KOMUTU GÖNDER
         print(">> Kilit kapatılıyor (L1)...")
         conn.sendall(build_tcp_command("L1", "0", user_id, op_ts))
 
