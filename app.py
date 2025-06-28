@@ -1,64 +1,67 @@
-import socket
-import threading
-import datetime
-import os
-from flask import Flask, request, jsonify
+### 📄 app.py (Web Panel)
+```python
+from flask import Flask, render_template, request, redirect, session
+import os, requests
+from dotenv import load_dotenv
 
-connected_clients = {}
+load_dotenv()
 app = Flask(__name__)
+app.secret_key = os.getenv("SECRET_KEY", "devkey")
 
-# TCP bağlantı kabul edici
-def handle_client(conn, addr):
-    print(f"[+] Kilit bağlandı: {addr}")
-    imei = None
+ADMIN_USER = os.getenv("ADMIN_USER", "admin")
+ADMIN_PASS = os.getenv("ADMIN_PASS", "admin")
+MAIN_URL = os.getenv("MAIN_URL", "http://localhost:5000")
+
+lock_ids = ["862205059210023"]
+lock_status = {id: "Kapalı" for id in lock_ids}
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        if (request.form["username"] == ADMIN_USER and
+            request.form["password"] == ADMIN_PASS):
+            session["logged_in"] = True
+            return redirect("/admin")
+        return render_template("login.html", error="Hatalı giriş")
+    return render_template("login.html", error=None)
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/login")
+
+@app.route("/admin")
+def admin():
+    if not session.get("logged_in"):
+        return redirect("/login")
+    return render_template("admin.html",
+                           devices=lock_ids,
+                           statuses=lock_status)
+
+@app.route("/open/<device_id>", methods=["POST"])
+def open_admin(device_id):
     try:
-        while True:
-            data = conn.recv(1024)
-            if not data:
-                break
-            msg = data.decode(errors='ignore').strip()
-            print(f"[{addr}] <<< {msg}")
-
-            if "*CMDR" in msg:
-                parts = msg.split(',')
-                if len(parts) >= 3:
-                    imei = parts[2]
-                    connected_clients[imei] = conn
+        res = requests.post(f"{MAIN_URL}/open/{device_id}")
+        if res.status_code == 200:
+            lock_status[device_id] = "Açık"
     except:
         pass
-    finally:
-        print(f"[-] Kilit ayrıldı: {addr}")
-        if imei in connected_clients:
-            del connected_clients[imei]
-        conn.close()
+    return redirect(request.referrer or "/admin")
 
-# TCP sunucusunu başlat
-def start_tcp_server():
-    tcp_port = int(os.getenv("TCP_PORT", 39051))
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind(('', tcp_port))
-    server.listen()
-    print(f"[TCP] Dinleniyor: 0.0.0.0:{tcp_port}")
-    while True:
-        conn, addr = server.accept()
-        threading.Thread(target=handle_client, args=(conn, addr), daemon=True).start()
-
-# API endpoint: komut gönder
-@app.route('/send/<imei>', methods=['POST'])
-def send_command(imei):
-    command = request.form.get("command")
-    conn = connected_clients.get(imei)
-    if conn:
+@app.route("/customer/<device_id>", methods=["GET", "POST"])
+def customer(device_id):
+    status = lock_status.get(device_id, "Bilinmiyor")
+    if request.method == "POST" and status == "Kapalı":
         try:
-            conn.send(command.encode() + b'\n')
-            return "Komut gönderildi.", 200
+            res = requests.post(f"{MAIN_URL}/open/{device_id}")
+            if res.status_code == 200:
+                status = "Açık"
         except:
-            return "Komut gönderilemedi.", 500
-    return "Cihaz bağlı değil.", 404
+            pass
+    return render_template("customer.html",
+                           device_id=device_id,
+                           status=status)
 
-# Uygulama başlat
-if __name__ == '__main__':
-    threading.Thread(target=start_tcp_server, daemon=True).start()
-    flask_port = int(os.getenv("FLASK_PORT", 5000))
-    print(f"[+] Flask API çalışıyor: 0.0.0.0:{flask_port}")
-    app.run(host="0.0.0.0", port=flask_port)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.getenv("WEB_PORT", 8000)))
+```
