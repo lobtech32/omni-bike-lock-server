@@ -2,9 +2,11 @@ import socket
 import threading
 from flask import Flask, request, jsonify
 import os
+from datetime import datetime
+import time
 
 TCP_PORT = int(os.getenv("TCP_PORT", 39051))
-FLASK_PORT = int(os.getenv("FLASK_PORT", 8000))  # 8000 yapıldı
+FLASK_PORT = int(os.getenv("FLASK_PORT", 8000))
 
 clients = {}
 app = Flask(__name__)
@@ -18,12 +20,27 @@ def send_command(imei, command):
     for conn, data in clients.items():
         if data["imei"] == imei:
             try:
-                conn.sendall((command + '\n').encode())
-                print(f"[API] Komut gönderildi: {command} -> {imei}")
+                # === L0 komutu için özel format ===
+                if command == "L0":
+                    now = datetime.utcnow()
+                    zaman_str = now.strftime("%y%m%d%H%M%S")  # örn: 240628153012
+                    epoch = int(time.time())  # Unix zaman
+                    user_id = 1234  # sabit kullanıcı ID (gerekirse değiştirilebilir)
+
+                    komut_str = f"*CMDS,OM,{imei},{zaman_str},L0,0,{user_id},{epoch}#\n"
+                    mesaj = b'\xFF\xFF' + komut_str.encode()
+                    print(f"[API] Gönderilen L0 komutu: {komut_str.strip()}")
+                else:
+                    mesaj = (command + '\n').encode()
+                    print(f"[API] Özel olmayan komut gönderildi: {command}")
+
+                conn.sendall(mesaj)
                 return jsonify({"status": "success", "message": f"Komut gönderildi: {command}"}), 200
+
             except Exception as e:
-                print(f"[API] Hata komut gönderilirken: {e}")
+                print(f"[API] Komut gönderme hatası: {e}")
                 return jsonify({"status": "error", "message": str(e)}), 500
+
     print(f"[API] IMEI bulunamadı: {imei}")
     return jsonify({"status": "error", "message": "IMEI bulunamadı"}), 404
 
