@@ -43,8 +43,10 @@ def open_admin(device_id):
         res = requests.post(f"{MAIN_URL}/open/{device_id}")
         if res.status_code == 200:
             lock_status[device_id] = "Açık"
-    except:
-        pass
+        else:
+            print("TCP sunucu hatası:", res.text)
+    except Exception as e:
+        print("İstek hatası:", e)
     return redirect(request.referrer or "/admin")
 
 @app.route("/customer/<device_id>", methods=["GET", "POST"])
@@ -55,8 +57,8 @@ def customer(device_id):
             res = requests.post(f"{MAIN_URL}/open/{device_id}")
             if res.status_code == 200:
                 status = "Açık"
-        except:
-            pass
+        except Exception as e:
+            print("İstek hatası:", e)
     return render_template("customer.html",
                            device_id=device_id,
                            status=status)
