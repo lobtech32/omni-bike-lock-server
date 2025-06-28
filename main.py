@@ -1,92 +1,64 @@
 import socket
 import threading
-from flask import Flask, request, jsonify
+import datetime
 import os
-from datetime import datetime
-import time
+from flask import Flask, request, jsonify
 
-# .env dosyasından portları al
-TCP_PORT = int(os.getenv("TCP_PORT", 39051))
-FLASK_PORT = int(os.getenv("FLASK_PORT", 5000))  # Railway container içinde 5000 dinliyor
-
-clients = {}
+connected_clients = {}
 app = Flask(__name__)
 
-@app.route('/')
-def index():
-    return "TCP Server Çalışıyor!", 200
-
-@app.route('/send/<imei>/<command>', methods=['POST'])
-def send_command(imei, command):
-    for conn, data in clients.items():
-        if data["imei"] == imei:
-            try:
-                if command == "L0":
-                    now = datetime.utcnow()
-                    zaman_str = now.strftime("%y%m%d%H%M%S")  # Örn: 240628173212
-                    epoch = int(time.time())                 # Unix zamanı
-                    user_id = 1234                           # Örnek kullanıcı ID
-
-                    komut_str = f"*CMDS,OM,{imei},{zaman_str},L0,0,{user_id},{epoch}#\n"
-                    mesaj = b'\xFF\xFF' + komut_str.encode()
-
-                    print(f"[API] Gönderilen L0 komutu: {komut_str.strip()}")
-                else:
-                    mesaj = (command + '\n').encode()
-                    print(f"[API] Diğer komut gönderildi: {command}")
-
-                conn.sendall(mesaj)
-                return jsonify({"status": "success", "message": f"Komut gönderildi: {command}"}), 200
-
-            except Exception as e:
-                print(f"[API] Komut gönderme hatası: {e}")
-                return jsonify({"status": "error", "message": str(e)}), 500
-
-    print(f"[API] IMEI bulunamadı: {imei}")
-    return jsonify({"status": "error", "message": "IMEI bulunamadı"}), 404
-
-@app.route('/open/<imei>', methods=['POST'])
-def open_lock(imei):
-    print(f"[API] /open çağrıldı, IMEI: {imei}")
-    return send_command(imei, "L0")
-
+# TCP bağlantı kabul edici
 def handle_client(conn, addr):
+    print(f"[+] Kilit bağlandı: {addr}")
     imei = None
-    with conn:
-        print(f"[TCP] Kilit bağlandı: {addr}")
+    try:
         while True:
-            try:
-                data = conn.recv(1024)
-                if not data:
-                    break
-                message = data.decode(errors='ignore').strip()
-                print(f"[TCP] {addr} <<< {message}")
-
-                parts = message.split(",")
-                if len(parts) > 2:
-                    imei = parts[2]
-                    clients[conn] = {"addr": addr, "imei": imei}
-                    print(f"[TCP] IMEI kaydedildi: {imei}")
-
-            except Exception as e:
-                print(f"[TCP] Hata: {e}")
+            data = conn.recv(1024)
+            if not data:
                 break
-        print(f"[TCP] Kilit ayrıldı: {addr}")
-        if conn in clients:
-            del clients[conn]
+            msg = data.decode(errors='ignore').strip()
+            print(f"[{addr}] <<< {msg}")
 
+            if "*CMDR" in msg:
+                parts = msg.split(',')
+                if len(parts) >= 3:
+                    imei = parts[2]
+                    connected_clients[imei] = conn
+    except:
+        pass
+    finally:
+        print(f"[-] Kilit ayrıldı: {addr}")
+        if imei in connected_clients:
+            del connected_clients[imei]
+        conn.close()
+
+# TCP sunucusunu başlat
 def start_tcp_server():
+    tcp_port = int(os.getenv("TCP_PORT", 39051))
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind(("0.0.0.0", TCP_PORT))
+    server.bind(('', tcp_port))
     server.listen()
-    print(f"[TCP] Dinleniyor: 0.0.0.0:{TCP_PORT}")
-
+    print(f"[TCP] Dinleniyor: 0.0.0.0:{tcp_port}")
     while True:
         conn, addr = server.accept()
-        thread = threading.Thread(target=handle_client, args=(conn, addr), daemon=True)
-        thread.start()
+        threading.Thread(target=handle_client, args=(conn, addr), daemon=True).start()
 
-if __name__ == "__main__":
+# API endpoint: komut gönder
+@app.route('/send/<imei>', methods=['POST'])
+def send_command(imei):
+    command = request.form.get("command")
+    conn = connected_clients.get(imei)
+    if conn:
+        try:
+            conn.send(command.encode() + b'\n')
+            return "Komut gönderildi.", 200
+        except:
+            return "Komut gönderilemedi.", 500
+    return "Cihaz bağlı değil.", 404
+
+# Uygulama başlat
+if __name__ == '__main__':
     threading.Thread(target=start_tcp_server, daemon=True).start()
-    print(f"[+] Flask API çalışıyor: 0.0.0.0:{FLASK_PORT}")
-    app.run(host="0.0.0.0", port=FLASK_PORT)
+    flask_port = int(os.getenv("FLASK_PORT", 5000))
+    print(f"[+] Flask API çalışıyor: 0.0.0.0:{flask_port}")
+    app.run(host="0.0.0.0", port=flask_port)
