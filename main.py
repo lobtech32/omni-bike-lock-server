@@ -1,13 +1,11 @@
-import socket
-import threading
-import os
+import socket, threading, os
 from flask import Flask, request
 from dotenv import load_dotenv
 
 load_dotenv()
 
 TCP_PORT = int(os.getenv("TCP_PORT", 39051))
-HTTP_PORT = int(os.getenv("FLASK_PORT", 5000))
+HTTP_PORT = int(os.getenv("PORT", 5000))
 connections = {}
 
 app = Flask(__name__)
@@ -18,7 +16,7 @@ def handle_client(conn, addr):
         if data.startswith("ID:"):
             device_id = data.split(":",1)[1]
             connections[device_id] = conn
-            print(f"[+] Kilit cihazı bağlandı: {device_id} @ {addr}")
+            print(f"[+] Kilit bağlandı: {device_id} @ {addr}")
         else:
             conn.close()
             return
@@ -49,7 +47,7 @@ def open_lock(device_id):
     if device_id in connections:
         try:
             connections[device_id].sendall(b"L0\n")
-            return {"status": "success", "message": f"Kilit {device_id} açıldı"}
+            return {"status": "success", "message": f"Kilit {device_id} açıldı"}, 200
         except Exception as e:
             return {"status": "error", "message": str(e)}, 500
     return {"status": "error", "message": "Cihaz bağlı değil"}, 404
