@@ -1,7 +1,6 @@
 import socket
 import threading
 from flask import Flask, request, jsonify
-import datetime
 import os
 
 TCP_PORT = int(os.getenv("TCP_PORT", 39051))
@@ -24,6 +23,11 @@ def send_command(imei, command):
             except Exception as e:
                 return jsonify({"status": "error", "message": str(e)}), 500
     return jsonify({"status": "error", "message": "IMEI bulunamadı"}), 404
+
+# Bu yeni route, kolay erişim için alias
+@app.route('/open/<imei>', methods=['POST'])
+def open_lock(imei):
+    return send_command(imei, "L0")
 
 def handle_client(conn, addr):
     imei = None
