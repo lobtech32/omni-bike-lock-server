@@ -5,8 +5,9 @@ import os
 from datetime import datetime
 import time
 
+# .env dosyasından portları al
 TCP_PORT = int(os.getenv("TCP_PORT", 39051))
-FLASK_PORT = int(os.getenv("FLASK_PORT", 8000))
+FLASK_PORT = int(os.getenv("FLASK_PORT", 5000))  # Railway container içinde 5000 dinliyor
 
 clients = {}
 app = Flask(__name__)
@@ -20,19 +21,19 @@ def send_command(imei, command):
     for conn, data in clients.items():
         if data["imei"] == imei:
             try:
-                # === L0 komutu için özel format ===
                 if command == "L0":
                     now = datetime.utcnow()
-                    zaman_str = now.strftime("%y%m%d%H%M%S")  # örn: 240628153012
-                    epoch = int(time.time())  # Unix zaman
-                    user_id = 1234  # sabit kullanıcı ID (gerekirse değiştirilebilir)
+                    zaman_str = now.strftime("%y%m%d%H%M%S")  # Örn: 240628173212
+                    epoch = int(time.time())                 # Unix zamanı
+                    user_id = 1234                           # Örnek kullanıcı ID
 
                     komut_str = f"*CMDS,OM,{imei},{zaman_str},L0,0,{user_id},{epoch}#\n"
                     mesaj = b'\xFF\xFF' + komut_str.encode()
+
                     print(f"[API] Gönderilen L0 komutu: {komut_str.strip()}")
                 else:
                     mesaj = (command + '\n').encode()
-                    print(f"[API] Özel olmayan komut gönderildi: {command}")
+                    print(f"[API] Diğer komut gönderildi: {command}")
 
                 conn.sendall(mesaj)
                 return jsonify({"status": "success", "message": f"Komut gönderildi: {command}"}), 200
