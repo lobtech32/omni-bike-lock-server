@@ -15,41 +15,48 @@ def index():
 
 @app.route('/send/<imei>/<command>', methods=['POST'])
 def send_command(imei, command):
+    print(f"[API] /send çağrıldı, IMEI: {imei}, Komut: {command}")
     for conn, data in clients.items():
         if data["imei"] == imei:
             try:
                 conn.sendall((command + '\n').encode())
+                print(f"[API] Komut gönderildi: {command} -> {imei}")
                 return jsonify({"status": "success", "message": f"Komut gönderildi: {command}"}), 200
             except Exception as e:
+                print(f"[API] Komut gönderme hatası: {e}")
                 return jsonify({"status": "error", "message": str(e)}), 500
+    print(f"[API] IMEI bulunamadı: {imei}")
     return jsonify({"status": "error", "message": "IMEI bulunamadı"}), 404
 
-# Bu yeni route, kolay erişim için alias
 @app.route('/open/<imei>', methods=['POST'])
 def open_lock(imei):
-    return send_command(imei, "L0")
+    print(f"[API] /open çağrıldı, IMEI: {imei}")
+    response = send_command(imei, "L0")
+    print(f"[API] Komut gönderme sonucu: {response}")
+    return response
 
 def handle_client(conn, addr):
     imei = None
     with conn:
-        print(f"[+] Kilit bağlandı: {addr}")
+        print(f"[TCP] Kilit bağlandı: {addr}")
         while True:
             try:
                 data = conn.recv(1024)
                 if not data:
                     break
                 message = data.decode(errors='ignore').strip()
-                print(f"[{addr}] <<< {message}")
+                print(f"[TCP] {addr} <<< {message}")
 
                 parts = message.split(",")
                 if len(parts) > 2:
                     imei = parts[2]
                     clients[conn] = {"addr": addr, "imei": imei}
+                    print(f"[TCP] IMEI kaydedildi: {imei}")
 
             except Exception as e:
-                print(f"[-] Hata: {e}")
+                print(f"[TCP] Hata: {e}")
                 break
-        print(f"[-] Kilit ayrıldı: {addr}")
+        print(f"[TCP] Kilit ayrıldı: {addr}")
         if conn in clients:
             del clients[conn]
 
