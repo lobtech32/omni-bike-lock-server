@@ -1,10 +1,10 @@
-from flask import Flask, request, jsonify
 import socket
 import threading
+from flask import Flask, request, jsonify
 import os
 
 TCP_PORT = int(os.getenv("TCP_PORT", 39051))
-FLASK_PORT = int(os.getenv("FLASK_PORT", 5000))
+FLASK_PORT = int(os.getenv("FLASK_PORT", 8000))  # 8000 yapıldı
 
 clients = {}
 app = Flask(__name__)
