@@ -1,7 +1,6 @@
+from flask import Flask, request, jsonify
 import socket
 import threading
-from flask import Flask, request, jsonify
-import datetime
 import os
 
 TCP_PORT = int(os.getenv("TCP_PORT", 39051))
