@@ -1,19 +1,11 @@
 <!DOCTYPE html>
 <html lang="tr">
-<head>
-  <meta charset="UTF-8">
-  <title>Admin Panel</title>
-</head>
+<head><meta charset="UTF-8"><title>Admin Panel</title></head>
 <body>
   <h2>Admin Panel</h2>
   <p><a href="/logout">Çıkış Yap</a></p>
-
   <table border="1" cellpadding="8" cellspacing="0">
-    <tr>
-      <th>Kilit ID</th>
-      <th>Durum</th>
-      <th>İşlem</th>
-    </tr>
+    <tr><th>Kilit ID</th><th>Durum</th><th>İşlem</th></tr>
     {% for id in devices %}
     <tr>
       <td>{{ id }}</td>
