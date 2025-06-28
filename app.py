@@ -10,8 +10,7 @@ ADMIN_USER = os.getenv("ADMIN_USER", "admin")
 ADMIN_PASS = os.getenv("ADMIN_PASS", "admin")
 MAIN_URL = os.getenv("MAIN_URL", "http://localhost:5000")
 
-# Örnek kilit listesi ve durum
-lock_ids = ["862205059210023"]  # IMEI listesi
+lock_ids = ["862205059210023"]
 lock_status = {id: "Kapalı" for id in lock_ids}
 
 @app.route("/login", methods=["GET", "POST"])
@@ -39,14 +38,16 @@ def admin():
 
 @app.route("/open/<device_id>", methods=["POST"])
 def open_admin(device_id):
+    print(f"[WEB PANEL] /open çağrıldı, device_id: {device_id}")
     try:
         res = requests.post(f"{MAIN_URL}/open/{device_id}")
+        print(f"[WEB PANEL] API cevabı: {res.status_code} - {res.text}")
         if res.status_code == 200:
             lock_status[device_id] = "Açık"
         else:
-            print("TCP sunucu hatası:", res.text)
+            print(f"[WEB PANEL] API hatası: {res.text}")
     except Exception as e:
-        print("İstek hatası:", e)
+        print(f"[WEB PANEL] İstek hatası: {e}")
     return redirect(request.referrer or "/admin")
 
 @app.route("/customer/<device_id>", methods=["GET", "POST"])
@@ -55,10 +56,11 @@ def customer(device_id):
     if request.method == "POST" and status == "Kapalı":
         try:
             res = requests.post(f"{MAIN_URL}/open/{device_id}")
+            print(f"[WEB PANEL] Müşteri API cevabı: {res.status_code} - {res.text}")
             if res.status_code == 200:
                 status = "Açık"
         except Exception as e:
-            print("İstek hatası:", e)
+            print(f"[WEB PANEL] Müşteri istek hatası: {e}")
     return render_template("customer.html",
                            device_id=device_id,
                            status=status)
