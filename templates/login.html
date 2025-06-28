@@ -1,22 +1,18 @@
+### 📁 templates/login.html
+```html
 <!DOCTYPE html>
 <html lang="tr">
-<head>
-  <meta charset="UTF-8">
-  <title>Admin Giriş</title>
-</head>
+<head><meta charset="UTF-8"><title>Admin Giriş</title></head>
 <body>
   <h2>Admin Girişi</h2>
-  {% if error %}
-    <p style="color:red">{{ error }}</p>
-  {% endif %}
+  {% if error %}<p style="color:red">{{ error }}</p>{% endif %}
   <form method="post">
     <label>Kullanıcı Adı:</label><br>
     <input type="text" name="username" placeholder="admin" required><br><br>
-
     <label>Şifre:</label><br>
     <input type="password" name="password" placeholder="••••••••" required><br><br>
-
     <button type="submit">Giriş Yap</button>
   </form>
 </body>
 </html>
+```
